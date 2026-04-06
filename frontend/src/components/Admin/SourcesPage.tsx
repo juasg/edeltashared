@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Database, Cpu, HardDrive, RefreshCw, CheckCircle, XCircle } from "lucide-react";
-import { getSchema, health } from "../../services/api";
+import { health } from "../../services/api";
 
 export function SourcesPage() {
   const { data: sources, isLoading } = useQuery({

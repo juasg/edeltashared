@@ -40,3 +40,4 @@ htmlcov/
 # Alembic
 backend/app/db/migrations/versions/*.py
 !backend/app/db/migrations/versions/.gitkeep
+.vercel

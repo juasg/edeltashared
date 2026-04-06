@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Shield, AlertTriangle, CheckCircle, XCircle, Filter } from "lucide-react";
+import { Shield, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 
 const api = (path: string, params?: Record<string, string>) => {
   const url = new URL(`/api/v1${path}`, window.location.origin);

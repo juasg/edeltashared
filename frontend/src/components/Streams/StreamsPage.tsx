@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { RefreshCw, Play, Pause, AlertCircle } from "lucide-react";
-import { streams as streamsApi, replications } from "../../services/api";
+import { RefreshCw, Play, AlertCircle } from "lucide-react";
+import { streams as streamsApi } from "../../services/api";
 import type { StreamState } from "../../types/api";
 
 const STATUS_STYLES: Record<string, { bg: string; dot: string }> = {
