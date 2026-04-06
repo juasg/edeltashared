@@ -1,0 +1,56 @@
+groups:
+  - name: edelta_alerts
+    rules:
+      - alert: LatencySLABreach
+        expr: histogram_quantile(0.95, rate(edelta_end_to_end_latency_ms_bucket[5m])) > 30000
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "End-to-end latency SLA breach"
+          description: "P95 latency exceeds 30s for {{ $labels.consumer_type }}/{{ $labels.table }}"
+
+      - alert: ShadowTableBacklog
+        expr: edelta_cdc_shadow_rows_pending > 50000
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Shadow table backlog growing"
+          description: "{{ $labels.schema }}.{{ $labels.table }} has {{ $value }} unconsumed rows"
+
+      - alert: HANACPUHigh
+        expr: edelta_hana_cpu_percent > 70
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HANA sidecar CPU high"
+          description: "HANA CPU at {{ $value }}%, CDC agent should back off"
+
+      - alert: ConsumerDown
+        expr: edelta_stream_status == -1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CDC stream in error state"
+          description: "Stream {{ $labels.config_id }} is in error state"
+
+      - alert: TargetWriteFailures
+        expr: rate(edelta_consumer_messages_consumed_total{consumer_type!=""}[5m]) == 0 and edelta_stream_status == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Consumer not processing messages"
+          description: "{{ $labels.consumer_type }} has not consumed messages in 5 minutes despite active stream"
+
+      - alert: KafkaProduceErrors
+        expr: rate(edelta_kafka_produce_errors_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka produce errors detected"
+          description: "CDC agent experiencing Kafka delivery failures on {{ $labels.topic }}"

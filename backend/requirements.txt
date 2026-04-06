@@ -1,0 +1,56 @@
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# Database
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+alembic==1.14.0
+
+# Validation & settings
+pydantic==2.10.3
+pydantic-settings==2.7.0
+
+# Redis
+redis[hiredis]==5.2.1
+
+# Kafka
+confluent-kafka==2.6.1
+
+# HANA
+hdbcli==2.21.28
+
+# Snowflake
+snowflake-connector-python==3.12.3
+
+# Aurora (PostgreSQL)
+psycopg2-binary==2.9.10
+
+# MongoDB
+motor==3.6.0
+pymongo==4.10.1
+
+# Security
+cryptography==44.0.0
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# Monitoring
+prometheus-client==0.21.1
+
+# OpenTelemetry (optional — set OTEL_ENABLED=true)
+opentelemetry-api==1.28.0
+opentelemetry-sdk==1.28.0
+opentelemetry-exporter-otlp-proto-grpc==1.28.0
+opentelemetry-instrumentation-fastapi==0.49b0
+
+# Templates
+Jinja2==3.1.4
+
+# HTTP
+httpx==0.28.1
+
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.24.0
+pytest-cov==6.0.0

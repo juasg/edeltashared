@@ -1,0 +1,61 @@
+{# Create AFTER INSERT/UPDATE/DELETE triggers for CDC capture.
+   Parameters:
+     - schema: HANA schema name
+     - table: source table name
+     - primary_key_columns: list of PK column names
+     - monitored_columns: list of column names to capture
+#}
+
+{# Helper: build composite key expression #}
+{% set pk_expr = primary_key_columns | map('format_column', prefix=':new_row') | join(" || '|' || ") %}
+{% set pk_expr_old = primary_key_columns | map('format_column', prefix=':old_row') | join(" || '|' || ") %}
+
+-- INSERT trigger
+CREATE TRIGGER "{{ schema }}"."TR_EDELTA_CDC_{{ table }}_INS"
+AFTER INSERT ON "{{ schema }}"."{{ table }}"
+REFERENCING NEW ROW new_row
+FOR EACH ROW
+BEGIN
+    INSERT INTO "{{ schema }}"."_EDELTA_CDC_{{ table }}" (op_type, row_key, changed_fields)
+    VALUES (
+        'I',
+        {{ pk_expr }},
+        JSON_OBJECT(
+            {% for col in monitored_columns %}
+            '{{ col }}' VALUE :new_row."{{ col }}"{{ ", " if not loop.last else "" }}
+            {% endfor %}
+        )
+    );
+END;
+
+-- UPDATE trigger
+CREATE TRIGGER "{{ schema }}"."TR_EDELTA_CDC_{{ table }}_UPD"
+AFTER UPDATE ON "{{ schema }}"."{{ table }}"
+REFERENCING NEW ROW new_row OLD ROW old_row
+FOR EACH ROW
+BEGIN
+    INSERT INTO "{{ schema }}"."_EDELTA_CDC_{{ table }}" (op_type, row_key, changed_fields)
+    VALUES (
+        'U',
+        {{ pk_expr }},
+        JSON_OBJECT(
+            {% for col in monitored_columns %}
+            '{{ col }}' VALUE :new_row."{{ col }}"{{ ", " if not loop.last else "" }}
+            {% endfor %}
+        )
+    );
+END;
+
+-- DELETE trigger
+CREATE TRIGGER "{{ schema }}"."TR_EDELTA_CDC_{{ table }}_DEL"
+AFTER DELETE ON "{{ schema }}"."{{ table }}"
+REFERENCING OLD ROW old_row
+FOR EACH ROW
+BEGIN
+    INSERT INTO "{{ schema }}"."_EDELTA_CDC_{{ table }}" (op_type, row_key, changed_fields)
+    VALUES (
+        'D',
+        {{ pk_expr_old }},
+        NULL
+    );
+END;

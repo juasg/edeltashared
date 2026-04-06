@@ -1,0 +1,8 @@
+# Consumer dependencies
+confluent-kafka==2.6.1
+psycopg2-binary==2.9.10
+snowflake-connector-python==3.12.3
+pydantic==2.10.3
+pydantic-settings==2.7.0
+pymongo==4.10.1
+prometheus-client==0.21.1

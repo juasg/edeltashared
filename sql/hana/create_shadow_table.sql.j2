@@ -1,0 +1,16 @@
+{# Create CDC shadow table for a monitored HANA source table.
+   Parameters:
+     - schema: HANA schema name
+     - table: source table name
+#}
+CREATE TABLE "{{ schema }}"."_EDELTA_CDC_{{ table }}" (
+    seq_id        BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    op_type       VARCHAR(1) NOT NULL,          -- 'I'nsert, 'U'pdate, 'D'elete
+    row_key       NVARCHAR(500) NOT NULL,        -- Primary key value(s) of changed row
+    changed_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    changed_fields NCLOB,                        -- JSON: field names + new values
+    is_consumed   BOOLEAN DEFAULT FALSE
+);
+
+CREATE INDEX "IDX_EDELTA_CDC_{{ table }}_CONSUMED"
+    ON "{{ schema }}"."_EDELTA_CDC_{{ table }}" (is_consumed, seq_id);

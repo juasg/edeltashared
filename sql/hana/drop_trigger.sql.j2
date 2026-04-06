@@ -1,0 +1,13 @@
+{# Drop all CDC triggers and shadow table for a monitored table.
+   Parameters:
+     - schema: HANA schema name
+     - table: source table name
+#}
+
+-- Drop triggers (safe — IF EXISTS not supported, so we catch errors)
+DROP TRIGGER "{{ schema }}"."TR_EDELTA_CDC_{{ table }}_INS";
+DROP TRIGGER "{{ schema }}"."TR_EDELTA_CDC_{{ table }}_UPD";
+DROP TRIGGER "{{ schema }}"."TR_EDELTA_CDC_{{ table }}_DEL";
+
+-- Drop shadow table
+DROP TABLE "{{ schema }}"."_EDELTA_CDC_{{ table }}";

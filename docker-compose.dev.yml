@@ -1,0 +1,152 @@
+version: "3.8"
+
+# Development overlay — extends docker-compose.yml
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  # ===== FastAPI Backend (hot-reload) =====
+  backend:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.backend
+    container_name: edelta-backend
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-edeltashared}
+      POSTGRES_USER: ${POSTGRES_USER:-edeltashared}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_postgres}
+      REDIS_URL: redis://redis:6379/0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SECRET_KEY: ${SECRET_KEY:-dev_secret_key_min_32_chars_long!}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev_encryption_key_32_bytes_ok!}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  # ===== CDC Agent =====
+  cdc-agent:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.cdc-agent
+    container_name: edelta-cdc-agent
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-edeltashared}
+      POSTGRES_USER: ${POSTGRES_USER:-edeltashared}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_postgres}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      REDIS_URL: redis://redis:6379/0
+      HANA_HOST: ${HANA_HOST:-}
+      HANA_PORT: ${HANA_PORT:-30015}
+      HANA_USER: ${HANA_USER:-}
+      HANA_PASSWORD: ${HANA_PASSWORD:-}
+      CDC_POLL_INTERVAL_SECONDS: ${CDC_POLL_INTERVAL_SECONDS:-3}
+      CDC_BATCH_SIZE: ${CDC_BATCH_SIZE:-1000}
+    volumes:
+      - ./cdc-agent:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  # ===== Snowflake Consumer =====
+  snowflake-consumer:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.consumer
+    container_name: edelta-snowflake-consumer
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-edeltashared}
+      POSTGRES_USER: ${POSTGRES_USER:-edeltashared}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_postgres}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      CONSUMER_TYPE: snowflake
+      SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT:-}
+      SNOWFLAKE_USER: ${SNOWFLAKE_USER:-}
+      SNOWFLAKE_PRIVATE_KEY_PATH: ${SNOWFLAKE_PRIVATE_KEY_PATH:-}
+      SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE:-}
+      SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE:-}
+      SNOWFLAKE_SCHEMA: ${SNOWFLAKE_SCHEMA:-}
+    volumes:
+      - ./consumers:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  # ===== Aurora Consumer =====
+  aurora-consumer:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.consumer
+    container_name: edelta-aurora-consumer
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      CONSUMER_TYPE: aurora
+      AURORA_HOST: aurora
+      AURORA_PORT: 5432
+      AURORA_DATABASE: edeltashared_target
+      AURORA_USER: aurora_user
+      AURORA_PASSWORD: aurora_pass
+    volumes:
+      - ./consumers:/app
+    command: python aurora_consumer.py
+    depends_on:
+      aurora:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  # ===== MongoDB Consumer =====
+  mongodb-consumer:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.consumer
+    container_name: edelta-mongodb-consumer
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      CONSUMER_TYPE: mongodb
+      MONGODB_URI: mongodb://mongodb:27017
+      MONGODB_DATABASE: edeltashared
+    volumes:
+      - ./consumers:/app
+    command: python mongodb_consumer.py
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  # ===== React Frontend (Vite dev server) =====
+  frontend:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.frontend
+      target: dev
+    container_name: edelta-frontend
+    environment:
+      VITE_API_URL: http://localhost:8000
+      VITE_WS_URL: ws://localhost:8000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev -- --host 0.0.0.0
+    depends_on:
+      - backend

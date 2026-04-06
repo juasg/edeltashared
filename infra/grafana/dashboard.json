@@ -1,0 +1,168 @@
+{
+  "dashboard": {
+    "title": "eDeltaShared CDC Pipeline",
+    "uid": "edelta-cdc-main",
+    "timezone": "browser",
+    "refresh": "10s",
+    "time": { "from": "now-1h", "to": "now" },
+    "panels": [
+      {
+        "title": "End-to-End Latency (P50 / P95 / P99)",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(edelta_end_to_end_latency_ms_bucket[5m]))",
+            "legendFormat": "p50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(edelta_end_to_end_latency_ms_bucket[5m]))",
+            "legendFormat": "p95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(edelta_end_to_end_latency_ms_bucket[5m]))",
+            "legendFormat": "p99"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 15000 },
+                { "color": "red", "value": 30000 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Throughput (messages/sec)",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "rate(edelta_kafka_messages_produced_total[1m])",
+            "legendFormat": "Produced {{ topic }}"
+          },
+          {
+            "expr": "rate(edelta_consumer_messages_consumed_total[1m])",
+            "legendFormat": "Consumed {{ consumer_type }}"
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "ops" } }
+      },
+      {
+        "title": "Shadow Table Backlog",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "edelta_cdc_shadow_rows_pending",
+            "legendFormat": "{{ schema }}.{{ table }}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 10000 },
+                { "color": "red", "value": 50000 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "HANA CPU %",
+        "type": "gauge",
+        "gridPos": { "h": 4, "w": 3, "x": 6, "y": 8 },
+        "targets": [
+          { "expr": "edelta_hana_cpu_percent" }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 50 },
+                { "color": "red", "value": 70 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "HANA Memory %",
+        "type": "gauge",
+        "gridPos": { "h": 4, "w": 3, "x": 9, "y": 8 },
+        "targets": [
+          { "expr": "edelta_hana_memory_percent" }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 70 },
+                { "color": "red", "value": 90 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Stream Status",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 12, "y": 8 },
+        "targets": [
+          {
+            "expr": "edelta_stream_status",
+            "legendFormat": "{{ config_id }}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              { "type": "value", "options": { "1": { "text": "Active", "color": "green" } } },
+              { "type": "value", "options": { "0": { "text": "Paused", "color": "yellow" } } },
+              { "type": "value", "options": { "-1": { "text": "Error", "color": "red" } } }
+            ]
+          }
+        }
+      },
+      {
+        "title": "Consumer Apply Duration",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(edelta_consumer_apply_duration_ms_bucket[5m]))",
+            "legendFormat": "p95 {{ consumer_type }}"
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "ms" } }
+      },
+      {
+        "title": "CDC Agent Poll Duration",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(edelta_cdc_agent_poll_duration_ms_bucket[5m]))",
+            "legendFormat": "p95 {{ schema }}.{{ table }}"
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "ms" } }
+      }
+    ]
+  }
+}

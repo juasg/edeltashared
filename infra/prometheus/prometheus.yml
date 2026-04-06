@@ -1,0 +1,28 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "alerts.yml"
+
+scrape_configs:
+  - job_name: "edelta-backend"
+    static_configs:
+      - targets: ["backend:8000"]
+    metrics_path: "/api/v1/metrics"
+
+  - job_name: "edelta-cdc-agent"
+    static_configs:
+      - targets: ["cdc-agent:9090"]
+
+  - job_name: "edelta-snowflake-consumer"
+    static_configs:
+      - targets: ["snowflake-consumer:9091"]
+
+  - job_name: "edelta-aurora-consumer"
+    static_configs:
+      - targets: ["aurora-consumer:9092"]
+
+  - job_name: "edelta-mongodb-consumer"
+    static_configs:
+      - targets: ["mongodb-consumer:9093"]

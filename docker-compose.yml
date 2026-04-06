@@ -1,0 +1,183 @@
+version: "3.8"
+
+services:
+  # ===== PostgreSQL (Metadata DB) =====
+  postgres:
+    image: postgres:14-alpine
+    container_name: edelta-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-edeltashared}
+      POSTGRES_USER: ${POSTGRES_USER:-edeltashared}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/postgres/init-metadata.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./sql/postgres/hana-simulator.sql:/docker-entrypoint-initdb.d/02-hana-simulator.sql
+      - ./sql/postgres/003-data-quality.sql:/docker-entrypoint-initdb.d/03-data-quality.sql
+      - ./sql/postgres/004-enterprise.sql:/docker-entrypoint-initdb.d/04-enterprise.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-edeltashared}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ===== Redis =====
+  redis:
+    image: redis:7-alpine
+    container_name: edelta-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ===== Zookeeper (Kafka dependency) =====
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: edelta-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc localhost 2181 | grep imok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===== Kafka =====
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: edelta-kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_RETENTION_BYTES: 1073741824
+      KAFKA_MESSAGE_MAX_BYTES: 1048576
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # ===== Kafka UI =====
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: edelta-kafka-ui
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_CLUSTERS_0_NAME: edelta-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    ports:
+      - "8080:8080"
+
+  # ===== Aurora Simulator (PostgreSQL) =====
+  aurora:
+    image: postgres:14-alpine
+    container_name: edelta-aurora
+    environment:
+      POSTGRES_DB: edeltashared_target
+      POSTGRES_USER: aurora_user
+      POSTGRES_PASSWORD: aurora_pass
+    ports:
+      - "5433:5432"
+    volumes:
+      - aurora_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aurora_user"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ===== MongoDB =====
+  mongodb:
+    image: mongo:7
+    container_name: edelta-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===== pgAdmin =====
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: edelta-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@edeltashared.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ===== Prometheus =====
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: edelta-prometheus
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./infra/prometheus/alerts.yml:/etc/prometheus/alerts.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+
+  # ===== Grafana =====
+  grafana:
+    image: grafana/grafana:latest
+    container_name: edelta-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/grafana:/etc/grafana/provisioning/dashboards
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+  redis_data:
+  zookeeper_data:
+  kafka_data:
+  aurora_data:
+  mongodb_data:
+  prometheus_data:
+  grafana_data:
